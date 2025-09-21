@@ -58,7 +58,7 @@ public class GenerateTestUserSig {
      * .com/rav).
      * `SDKAppID` uniquely identifies a Tencent Cloud account.
      */
-    public static final int SDKAPPID = PLACEHOLDER;
+    public static final int SDKAPPID = 1;
 
 
     /**

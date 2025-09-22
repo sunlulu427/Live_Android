@@ -43,6 +43,6 @@ extra.apply {
     set("liteavSdk", "com.tencent.liteav:LiteAVSDK_Professional:latest.release")
     set("versionCode", 1)
     set("versionName", "v1.0")
-    set("ndkAbi", "armeabi") // ,'armeabi-v7a', 'arm64-v8a'
+    set("ndkAbi", "arm64-v8a")
     set("aekit_version", "1.0.10-cloud")
 }

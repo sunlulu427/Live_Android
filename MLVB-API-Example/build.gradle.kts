@@ -4,8 +4,6 @@ buildscript {
     repositories {
         mavenCentral()
         google()
-        @Suppress("DEPRECATION")
-        jcenter()
         maven {
             url = uri("https://maven.aliyun.com/repository/public")
         }

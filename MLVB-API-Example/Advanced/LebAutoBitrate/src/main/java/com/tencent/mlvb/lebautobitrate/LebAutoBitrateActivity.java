@@ -5,9 +5,7 @@ import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
-
 import androidx.annotation.Nullable;
-
 import com.tencent.live2.V2TXLivePlayer;
 import com.tencent.live2.V2TXLivePlayerObserver;
 import com.tencent.live2.impl.V2TXLivePlayerImpl;
@@ -25,23 +23,24 @@ import com.tencent.rtmp.ui.TXCloudVideoView;
  * Need to stop current playback before starting adaptive playback
  */
 public class LebAutoBitrateActivity extends MLVBBaseActivity {
+
     private static final String TAG = LebAutoBitrateActivity.class.getSimpleName();
-    private static final String NORMAL_PLAY_URL_1080 = "webrtc://liteavapp.qcloud.com/live/liteavdemoplayerstreamid?"
-            + "tabr_bitrates=demo1080p,demo720p,demo540p&tabr_start_bitrate=demo1080p";
-    private static final String NORMAL_PLAY_URL_720  = "webrtc://liteavapp.qcloud.com/live/liteavdemoplayerstreamid?"
-            + "tabr_bitrates=demo1080p,demo720p,demo540p&tabr_start_bitrate=demo720p";
-    private static final String NORMAL_PLAY_URL_540  = "webrtc://liteavapp.qcloud.com/live/liteavdemoplayerstreamid?"
-            + "tabr_bitrates=demo1080p,demo720p,demo540p&tabr_start_bitrate=demo540p";
-    private static final String AUTO_BITRATE_SUFFIX  = "&tabr_control=auto";
+    private static final String NORMAL_PLAY_URL_1080 = "webrtc://liteavapp.qcloud.com/live/liteavdemoplayerstreamid?" +
+            "tabr_bitrates=demo1080p,demo720p,demo540p&tabr_start_bitrate=demo1080p";
+    private static final String NORMAL_PLAY_URL_720 = "webrtc://liteavapp.qcloud.com/live/liteavdemoplayerstreamid?" +
+            "tabr_bitrates=demo1080p,demo720p,demo540p&tabr_start_bitrate=demo720p";
+    private static final String NORMAL_PLAY_URL_540 = "webrtc://liteavapp.qcloud.com/live/liteavdemoplayerstreamid?" +
+            "tabr_bitrates=demo1080p,demo720p,demo540p&tabr_start_bitrate=demo540p";
+    private static final String AUTO_BITRATE_SUFFIX = "&tabr_control=auto";
 
     private TXCloudVideoView mVideoView;
-    private V2TXLivePlayer   mLivePlayer;
-    private boolean          mAutoBitrate = false;
-    private String           mPlayUrl = NORMAL_PLAY_URL_720;
-    private Button           mButton1080P;
-    private Button           mButton720P;
-    private Button           mButton540P;
-    private Button           mButtonSwitch;
+    private V2TXLivePlayer mLivePlayer;
+    private boolean mAutoBitrate = false;
+    private String mPlayUrl = NORMAL_PLAY_URL_720;
+    private Button mButton1080P;
+    private Button mButton720P;
+    private Button mButton540P;
+    private Button mButtonSwitch;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -54,10 +53,9 @@ public class LebAutoBitrateActivity extends MLVBBaseActivity {
     }
 
     @Override
-    protected void onPermissionGranted() {
+    public void onPermissionGranted() {
         initView();
     }
-
 
     private void initView() {
         mVideoView = findViewById(R.id.tx_cloud_view);
@@ -65,6 +63,7 @@ public class LebAutoBitrateActivity extends MLVBBaseActivity {
         mButton1080P = findViewById(R.id.btn_switch_1080);
         mButton720P = findViewById(R.id.btn_switch_720);
         mButton540P = findViewById(R.id.btn_switch_540);
+
         mButtonSwitch.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -79,12 +78,14 @@ public class LebAutoBitrateActivity extends MLVBBaseActivity {
                 switchBitrate(1080);
             }
         });
+
         mButton720P.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 switchBitrate(720);
             }
         });
+
         mButton540P.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -97,6 +98,7 @@ public class LebAutoBitrateActivity extends MLVBBaseActivity {
         if (mAutoBitrate) {
             return;
         }
+
         switch (bitrate) {
             case 1080:
                 mPlayUrl = NORMAL_PLAY_URL_1080;
@@ -111,24 +113,31 @@ public class LebAutoBitrateActivity extends MLVBBaseActivity {
                 mPlayUrl = NORMAL_PLAY_URL_720;
                 break;
         }
-        if (mAutoBitrate) {
-            mLivePlayer.switchStream(mPlayUrl + AUTO_BITRATE_SUFFIX);
-        } else {
-            mLivePlayer.switchStream(mPlayUrl);
+
+        String urlToUse = mAutoBitrate ? (mPlayUrl + AUTO_BITRATE_SUFFIX) : mPlayUrl;
+        if (mLivePlayer != null) {
+            mLivePlayer.switchStream(urlToUse);
         }
     }
 
-    private void switchAutoBitrate(boolean mAutoBitrate) {
-        mLivePlayer.stopPlay();
-        if (mAutoBitrate) {
+    private void switchAutoBitrate(boolean autoBitrate) {
+        if (mLivePlayer != null) {
+            mLivePlayer.stopPlay();
+        }
+
+        if (autoBitrate) {
             mPlayUrl = NORMAL_PLAY_URL_540;
-            mLivePlayer.startLivePlay(mPlayUrl + AUTO_BITRATE_SUFFIX);
+            if (mLivePlayer != null) {
+                mLivePlayer.startLivePlay(mPlayUrl + AUTO_BITRATE_SUFFIX);
+            }
             mButton1080P.setBackgroundResource(R.drawable.common_button_grey_bg);
             mButton720P.setBackgroundResource(R.drawable.common_button_grey_bg);
             mButton540P.setBackgroundResource(R.drawable.common_button_grey_bg);
             mButtonSwitch.setText(R.string.lebautobitrate_switch_stop);
         } else {
-            mLivePlayer.startLivePlay(mPlayUrl);
+            if (mLivePlayer != null) {
+                mLivePlayer.startLivePlay(mPlayUrl);
+            }
             mButton1080P.setBackgroundResource(R.drawable.common_button_bg);
             mButton720P.setBackgroundResource(R.drawable.common_button_bg);
             mButton540P.setBackgroundResource(R.drawable.common_button_bg);
@@ -138,7 +147,7 @@ public class LebAutoBitrateActivity extends MLVBBaseActivity {
 
     private void stopPlay() {
         if (mLivePlayer != null) {
-            if (mLivePlayer != null && mLivePlayer.isPlaying() == 1) {
+            if (mLivePlayer.isPlaying() == 1) {
                 mLivePlayer.stopPlay();
             }
         }
@@ -160,20 +169,26 @@ public class LebAutoBitrateActivity extends MLVBBaseActivity {
                 }
 
                 @Override
-                public void onVideoResolutionChanged(V2TXLivePlayer player, final int width, final int height) {
-                     runOnUiThread(new Runnable() {
-                         @Override
-                         public void run() {
-                             Toast.makeText(LebAutoBitrateActivity.this,
-                                     "resolution:" + width + "*" + height, Toast.LENGTH_SHORT).show();
-                         }
-                     });
+                public void onVideoResolutionChanged(V2TXLivePlayer player, int width, int height) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            Toast.makeText(
+                                LebAutoBitrateActivity.this,
+                                "resolution: " + width + "*" + height,
+                                Toast.LENGTH_SHORT
+                            ).show();
+                        }
+                    });
                 }
             });
         }
-        mLivePlayer.setRenderView(mVideoView);
-        int ret = mLivePlayer.startLivePlay(mPlayUrl);
-        Log.i(TAG, "startPlay return: " + ret);
+
+        if (mLivePlayer != null) {
+            mLivePlayer.setRenderView(mVideoView);
+            int ret = mLivePlayer.startLivePlay(mPlayUrl);
+            Log.i(TAG, "startPlay return: " + ret);
+        }
     }
 
     @Override

@@ -4,16 +4,12 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.text.SpannableString;
 import android.text.Spanned;
-import android.text.TextUtils;
 import android.text.method.LinkMovementMethod;
 import android.text.style.URLSpan;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.TextView;
 import android.widget.Toast;
-
-import androidx.annotation.Nullable;
-
 import com.tencent.mlvb.common.MLVBBaseActivity;
 
 /**
@@ -28,7 +24,7 @@ public class LivePlayEnterActivity extends MLVBBaseActivity {
     private TextView mTextDesc;
 
     @Override
-    protected void onCreate(@Nullable Bundle savedInstanceState) {
+    protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.liveplay_activity_live_play_enter);
         initView();
@@ -36,54 +32,71 @@ public class LivePlayEnterActivity extends MLVBBaseActivity {
 
     private void initView() {
         mEditStreamId = findViewById(R.id.et_stream_id);
-
         mEditStreamId.setText(generateStreamId());
+
+        // Set up click listeners for different play types
         findViewById(R.id.btn_play_rtmp).setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View view) {
+            public void onClick(View v) {
                 startPlay(0);
             }
         });
 
         findViewById(R.id.btn_play_flv).setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View view) {
+            public void onClick(View v) {
                 startPlay(1);
             }
         });
 
         findViewById(R.id.btn_play_hls).setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View view) {
+            public void onClick(View v) {
                 startPlay(2);
             }
         });
 
         findViewById(R.id.btn_play_rtc).setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View view) {
+            public void onClick(View v) {
                 startPlay(3);
             }
         });
 
         mTextDesc = findViewById(R.id.tv_desc);
+        setupDescriptionText();
+    }
 
+    private void setupDescriptionText() {
         String text = mTextDesc.getText().toString();
+        SpannableString spannableString = new SpannableString(text);
 
-        SpannableString str = new SpannableString(text);
-        str.setSpan(new URLSpan("https://cloud.tencent.com/document/product/454/56598"), text.indexOf("https://"),
-                text.indexOf("56598") + 5, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        int urlStart = text.indexOf("https://");
+        int urlEnd = text.indexOf("56598") + 5;
+
+        if (urlStart != -1 && urlEnd > urlStart) {
+            spannableString.setSpan(
+                new URLSpan("https://cloud.tencent.com/document/product/454/56598"),
+                urlStart,
+                urlEnd,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            );
+        }
+
         mTextDesc.setMovementMethod(LinkMovementMethod.getInstance());
-        mTextDesc.setText(str);
+        mTextDesc.setText(spannableString);
     }
 
     private void startPlay(int type) {
         String streamId = mEditStreamId.getText().toString();
-        if (TextUtils.isEmpty(streamId)) {
-            Toast.makeText(LivePlayEnterActivity.this, getString(R.string.liveplay_please_input_streamid),
-                    Toast.LENGTH_SHORT).show();
+        if (streamId.trim().isEmpty()) {
+            Toast.makeText(
+                this,
+                getString(R.string.liveplay_please_input_streamid),
+                Toast.LENGTH_SHORT
+            ).show();
         } else {
-            Intent intent = new Intent(LivePlayEnterActivity.this, LivePlayActivity.class);
+            Intent intent = new Intent(this, LivePlayActivity.class);
             intent.putExtra("STREAM_ID", streamId);
             intent.putExtra("STREAM_TYPE", type);
             startActivity(intent);
@@ -91,7 +104,7 @@ public class LivePlayEnterActivity extends MLVBBaseActivity {
     }
 
     @Override
-    protected void onPermissionGranted() {
-
+    public void onPermissionGranted() {
+        // No specific action needed when permission is granted
     }
 }

@@ -10,12 +10,8 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.Toast;
-
 import androidx.annotation.Nullable;
-
-import com.tencent.mlvb.pictureinpicture.R;
 import com.tencent.live2.V2TXLivePlayer;
-import com.tencent.live2.V2TXLivePlayerObserver;
 import com.tencent.live2.impl.V2TXLivePlayerImpl;
 import com.tencent.mlvb.common.MLVBBaseActivity;
 import com.tencent.rtmp.ui.TXCloudVideoView;
@@ -24,6 +20,7 @@ public class PictureInPictureActivity extends MLVBBaseActivity {
 
     private static final String TAG = PictureInPictureActivity.class.getSimpleName();
     private static final String PLAY_URL = "http://liteavapp.qcloud.com/live/liteavdemoplayerstreamid.flv";
+
     private TXCloudVideoView mVideoView;
     private V2TXLivePlayer mLivePlayer;
     private ImageView mButtonBack;
@@ -42,7 +39,7 @@ public class PictureInPictureActivity extends MLVBBaseActivity {
     }
 
     @Override
-    protected void onPermissionGranted() {
+    public void onPermissionGranted() {
         initView();
         initPlayer();
         startPlay();
@@ -71,7 +68,7 @@ public class PictureInPictureActivity extends MLVBBaseActivity {
         mButtonPause.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                if (mLivePlayer.isPlaying() == 1) {
+                if (mLivePlayer != null && mLivePlayer.isPlaying() == 1) {
                     stopPlay();
                     mButtonPause.setText(R.string.resume);
                 } else {
@@ -99,8 +96,8 @@ public class PictureInPictureActivity extends MLVBBaseActivity {
     }
 
     @Override
-    public void onPictureInPictureModeChanged(boolean isInPictureInPictureMode, Configuration configuration) {
-        super.onPictureInPictureModeChanged(isInPictureInPictureMode, configuration);
+    public void onPictureInPictureModeChanged(boolean isInPictureInPictureMode, Configuration newConfig) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig);
         if (isInPictureInPictureMode) {
             mButtonEnablePictureInPicture.setVisibility(View.GONE);
             mButtonPause.setVisibility(View.GONE);
@@ -111,12 +108,16 @@ public class PictureInPictureActivity extends MLVBBaseActivity {
     }
 
     private void stopPlay() {
-        mLivePlayer.stopPlay();
+        if (mLivePlayer != null) {
+            mLivePlayer.stopPlay();
+        }
     }
 
     private void startPlay() {
-        int ret = mLivePlayer.startLivePlay(PLAY_URL);
-        Log.i(TAG, "startPlay return: " + ret);
+        if (mLivePlayer != null) {
+            int ret = mLivePlayer.startLivePlay(PLAY_URL);
+            Log.i(TAG, "startPlay return: " + ret);
+        }
     }
 
     @Override

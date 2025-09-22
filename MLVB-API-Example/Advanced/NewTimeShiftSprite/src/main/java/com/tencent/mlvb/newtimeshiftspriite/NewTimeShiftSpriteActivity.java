@@ -8,19 +8,16 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.Toast;
 import androidx.annotation.Nullable;
-
 import com.tencent.mlvb.common.MLVBBaseActivity;
-
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
 
-public class NewTimeShiftSpriteActivity extends MLVBBaseActivity
-        implements View.OnClickListener, TXSpriteImageFetcher.TXSpriteImageFetcherCallback {
-    private static final String TAG = NewTimeShiftSpriteActivity.class.getSimpleName();
+public class NewTimeShiftSpriteActivity extends MLVBBaseActivity implements View.OnClickListener, TXSpriteImageFetcher.TXSpriteImageFetcherCallback {
 
+    private static final String TAG = NewTimeShiftSpriteActivity.class.getSimpleName();
     public static final String NEW_TIME_SHIFT_DOMAIN = "5000.liveplay.myqcloud.com";
     public static final String NEW_TIME_SHIFT_PATH = "live";
     public static final String NEW_TIME_SHIFT_STREAMID = "5000_testsprite";
@@ -37,13 +34,12 @@ public class NewTimeShiftSpriteActivity extends MLVBBaseActivity
     private EditText mEditOffsetH;
     private EditText mEditOffsetM;
     private EditText mEditOffsetS;
-
     private ImageView mImageViewThumb;
 
     private TXSpriteImageFetcher mSpriteImageFetcher;
 
     @Override
-    protected void onPermissionGranted() {
+    public void onPermissionGranted() {
         initView();
     }
 
@@ -66,6 +62,7 @@ public class NewTimeShiftSpriteActivity extends MLVBBaseActivity
     private void initView() {
         findViewById(R.id.iv_back).setOnClickListener(this);
         findViewById(R.id.new_timeshift_show).setOnClickListener(this);
+
         mEditDomain = findViewById(R.id.et_domain);
         mEditPath = findViewById(R.id.et_path);
         mEditStream = findViewById(R.id.et_stream);
@@ -84,7 +81,7 @@ public class NewTimeShiftSpriteActivity extends MLVBBaseActivity
         mEditPath.setText(NEW_TIME_SHIFT_PATH);
         mEditStream.setText(NEW_TIME_SHIFT_STREAMID);
 
-        SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss");
+        SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss", Locale.getDefault());
         String currentTime = sdf.format(new Date());
         String[] parts = currentTime.split(":");
         mEditStartH.setText(parts[0]);
@@ -92,12 +89,12 @@ public class NewTimeShiftSpriteActivity extends MLVBBaseActivity
         mEditStartS.setText(parts[2]);
 
         Calendar calendar = Calendar.getInstance();
-        calendar.add(Calendar.HOUR_OF_DAY, 1); // 增加一个小时
+        calendar.add(Calendar.HOUR_OF_DAY, 1);
         String anHourLaterTime = sdf.format(calendar.getTime());
-        parts = anHourLaterTime.split(":");
-        mEditEndH.setText(parts[0]);
-        mEditEndM.setText(parts[1]);
-        mEditEndS.setText(parts[2]);
+        String[] endParts = anHourLaterTime.split(":");
+        mEditEndH.setText(endParts[0]);
+        mEditEndM.setText(endParts[1]);
+        mEditEndS.setText(endParts[2]);
 
         mEditOffsetH.setText("00");
         mEditOffsetM.setText("00");
@@ -116,47 +113,65 @@ public class NewTimeShiftSpriteActivity extends MLVBBaseActivity
 
     private void showThumb() {
         mImageViewThumb.setImageBitmap(null);
+
         if (mSpriteImageFetcher == null) {
             mSpriteImageFetcher = new TXSpriteImageFetcher(getApplicationContext());
         }
 
-        long startTime = 0;
-        long endTime = 0;
-        String dateString =
-                new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
-        String strStartTime = dateString + " " + mEditStartH.getText().toString() + ":"
-                + mEditStartM.getText().toString() + ":" + mEditStartS.getText().toString();
-        String strEndTime = dateString + " " + mEditEndH.getText().toString() + ":"
-                + mEditEndM.getText().toString() + ":" + mEditEndS.getText().toString();
+        long startTime = 0L;
+        long endTime = 0L;
+        String dateString = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(new Date());
+        String strStartTime = dateString + " " + mEditStartH.getText() + ":" + mEditStartM.getText() + ":" + mEditStartS.getText();
+        String strEndTime = dateString + " " + mEditEndH.getText() + ":" + mEditEndM.getText() + ":" + mEditEndS.getText();
+
         SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
         try {
-            Date date = sdf.parse(strStartTime);
-            startTime = date.getTime() / 1000; // 将毫秒级时间戳转换为秒级时间戳
+            Date startDate = sdf.parse(strStartTime);
+            startTime = (startDate != null ? startDate.getTime() : 0) / 1000;
 
-            date = sdf.parse(strEndTime);
-            endTime = date.getTime() / 1000; // 将毫秒级时间戳转换为秒级时间戳
+            Date endDate = sdf.parse(strEndTime);
+            endTime = (endDate != null ? endDate.getTime() : 0) / 1000;
         } catch (ParseException e) {
             e.printStackTrace();
         }
 
-        mSpriteImageFetcher.init(mEditDomain.getText().toString(), mEditPath.getText().toString(),
-                mEditStream.getText().toString(), startTime, endTime);
-        mSpriteImageFetcher.setCallback(this);
-        long time = Long.parseLong(mEditOffsetH.getText().toString()) * 3600
-                + Long.parseLong(mEditOffsetM.getText().toString()) * 60
-                + Long.parseLong(mEditOffsetS.getText().toString());
+        if (mSpriteImageFetcher != null) {
+            mSpriteImageFetcher.init(
+                mEditDomain.getText().toString(),
+                mEditPath.getText().toString(),
+                mEditStream.getText().toString(),
+                startTime,
+                endTime
+            );
+            mSpriteImageFetcher.setCallback(this);
 
-        mSpriteImageFetcher.getThumbnail(time);
+            long time = Long.parseLong(mEditOffsetH.getText().toString()) * 3600 +
+                    Long.parseLong(mEditOffsetM.getText().toString()) * 60 +
+                    Long.parseLong(mEditOffsetS.getText().toString());
+
+            mSpriteImageFetcher.getThumbnail(time);
+        }
     }
 
     @Override
     public void onFetchDone(int errCode, Bitmap image) {
         String msg = "onFetchDone errCode is " + errCode;
         Log.i(TAG, msg);
+
         if (errCode != TXSpriteImageFetcher.SPRITE_THUMBNAIL_FETCH_SUCC) {
-            mImageViewThumb.post(
-                    () -> Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_SHORT).show());
+            mImageViewThumb.post(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(getApplicationContext(), msg, Toast.LENGTH_SHORT).show();
+                }
+            });
         }
-        mImageViewThumb.post(() -> mImageViewThumb.setImageBitmap(image));
+
+        mImageViewThumb.post(new Runnable() {
+            @Override
+            public void run() {
+                mImageViewThumb.setImageBitmap(image);
+            }
+        });
     }
 }

@@ -2,29 +2,27 @@ package com.tencent.mlvb.rtcpushandplay;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.text.TextUtils;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.RadioGroup;
 import android.widget.Toast;
-import androidx.annotation.Nullable;
 import com.tencent.mlvb.common.MLVBBaseActivity;
 
 /**
  * Entrance View for RTC Co-anchoring + Ultra-low-latency Playback
  *
- * - Enter as an anchor {@link RTCPushAndPlayAnchorActivity}
- * - Enter as audience {@link RTCPushAndPlayAudienceActivity}
+ * - Enter as an anchor [RTCPushAndPlayAnchorActivity]
+ * - Enter as audience [RTCPushAndPlayAudienceActivity]
  */
 public class RTCPushAndPlayEnterActivity extends MLVBBaseActivity {
 
-    private EditText   mEditStreamId;
-    private Button     mButtonCommit;
+    private EditText mEditStreamId;
+    private Button mButtonCommit;
     private RadioGroup mRadioRole;
 
     @Override
-    protected void onCreate(@Nullable Bundle savedInstanceState) {
+    protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.rtcpushandplay_activity_rtc_push_and_play_enter);
         initView();
@@ -32,16 +30,17 @@ public class RTCPushAndPlayEnterActivity extends MLVBBaseActivity {
 
     private void initView() {
         mEditStreamId = findViewById(R.id.et_stream_id);
-        mRadioRole    = findViewById(R.id.rg_role);
+        mRadioRole = findViewById(R.id.rg_role);
         mButtonCommit = findViewById(R.id.btn_commit);
 
         mEditStreamId.setText(generateStreamId());
+
         mRadioRole.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
             @Override
-            public void onCheckedChanged(RadioGroup radioGroup, int i) {
-                if (i == R.id.rb_anchor) {
+            public void onCheckedChanged(RadioGroup group, int checkedId) {
+                if (checkedId == R.id.rb_anchor) {
                     mButtonCommit.setText(R.string.rtcpushandplay_rtc_push);
-                } else if (i == R.id.rb_audience) {
+                } else if (checkedId == R.id.rb_audience) {
                     mButtonCommit.setText(R.string.rtcpushandplay_rtc_play);
                 }
             }
@@ -50,21 +49,28 @@ public class RTCPushAndPlayEnterActivity extends MLVBBaseActivity {
 
         findViewById(R.id.btn_commit).setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View view) {
+            public void onClick(View v) {
                 String streamId = mEditStreamId.getText().toString();
 
-                if (TextUtils.isEmpty(streamId)) {
-                    Toast.makeText(RTCPushAndPlayEnterActivity.this,
-                            getString(R.string.rtcpushandplay_please_input_streamid), Toast.LENGTH_SHORT).show();
+                if (streamId.trim().isEmpty()) {
+                    Toast.makeText(
+                        RTCPushAndPlayEnterActivity.this,
+                        getString(R.string.rtcpushandplay_please_input_streamid),
+                        Toast.LENGTH_SHORT
+                    ).show();
                     return;
                 }
 
-                Intent intent = null;
-                if (mRadioRole.getCheckedRadioButtonId() == R.id.rb_anchor) {
+                Intent intent;
+                int checkedId = mRadioRole.getCheckedRadioButtonId();
+                if (checkedId == R.id.rb_anchor) {
                     intent = new Intent(RTCPushAndPlayEnterActivity.this, RTCPushAndPlayAnchorActivity.class);
-                } else if (mRadioRole.getCheckedRadioButtonId() == R.id.rb_audience) {
+                } else if (checkedId == R.id.rb_audience) {
                     intent = new Intent(RTCPushAndPlayEnterActivity.this, RTCPushAndPlayAudienceActivity.class);
+                } else {
+                    return;
                 }
+
                 intent.putExtra("STREAM_ID", streamId);
                 startActivity(intent);
             }
@@ -72,7 +78,7 @@ public class RTCPushAndPlayEnterActivity extends MLVBBaseActivity {
     }
 
     @Override
-    protected void onPermissionGranted() {
-
+    public void onPermissionGranted() {
+        // No specific action needed when permission is granted
     }
 }

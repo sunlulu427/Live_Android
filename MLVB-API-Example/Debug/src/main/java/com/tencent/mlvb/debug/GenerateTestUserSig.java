@@ -1,19 +1,10 @@
 package com.tencent.mlvb.debug;
 
-
 import android.util.Base64;
-
-import org.json.JSONException;
 import org.json.JSONObject;
-
-import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
-import java.security.InvalidKeyException;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.Arrays;
 import java.util.zip.Deflater;
-
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 
@@ -24,7 +15,7 @@ import javax.crypto.spec.SecretKeySpec;
  * It is calculated based on `SDKAppID`, `UserID`, and `EXPIRETIME` using the HMAC-SHA256 encryption
  * algorithm.
  * Attention: do not use the code below in your commercial application. This is because:
- * The code may be able to calculate UserSig correctly, but it is only for quick testing of the SDK’s
+ * The code may be able to calculate UserSig correctly, but it is only for quick testing of the SDK's
  * basic features, not for commercial applications.
  * `SDKSECRETKEY` in client code can be easily decompiled and reversed, especially on web.
  * Once your key is disclosed, attackers will be able to steal your Tencent Cloud traffic.
@@ -37,14 +28,11 @@ import javax.crypto.spec.SecretKeySpec;
  */
 public class GenerateTestUserSig {
 
-
     /**
      * License Management View (https://console.cloud.tencent.com/live/license)
      * License URL of your application
      */
-    public static final String LICENSEURL =
-            "PLACEHOLDER";
-
+    public static final String LICENSEURL = "PLACEHOLDER";
 
     /**
      * License Management View (https://console.cloud.tencent.com/live/license)
@@ -60,7 +48,6 @@ public class GenerateTestUserSig {
      */
     public static final int SDKAPPID = 1;
 
-
     /**
      * Signature validity period, which should not be set too short
      * Unit: second
@@ -68,12 +55,11 @@ public class GenerateTestUserSig {
      */
     private static final int EXPIRETIME = 604800;
 
-
     /**
      * Follow the steps below to obtain the key required for UserSig calculation.
      * Step 1. Log in to the [TRTC console](https://console.cloud.tencent.com/rav), and create an application if you
-     * don’t have one.
-     * Step 2. Find your application, click “Application Info”, and click the “Quick Start” tab.
+     * don't have one.
+     * Step 2. Find your application, click "Application Info", and click the "Quick Start" tab.
      * Step 3. Copy and paste the key to the code, as shown below.
      * Note: this method is for testing only. Before commercial launch, please migrate the UserSig calculation code
      * and key to your backend server to prevent key disclosure and traffic stealing.
@@ -103,14 +89,13 @@ public class GenerateTestUserSig {
      */
     public static final String LIVE_URL_KEY = "PLACEHOLDER";
 
-
     /**
      * Calculating UserSig
      * The asymmetric encryption algorithm HMAC-SHA256 is used in the function to calculate UserSig based on
      * `SDKAppID`, `UserID`, and `EXPIRETIME`.
      *
      * do not use the code below in your commercial application. This is because:
-     * The code may be able to calculate UserSig correctly, but it is only for quick testing of the SDK’s basic
+     * The code may be able to calculate UserSig correctly, but it is only for quick testing of the SDK's basic
      * features, not for commercial applications.
      * `SDKSECRETKEY` in client code can be easily decompiled and reversed, especially on web.
      * Once your key is disclosed, attackers will be able to steal your Tencent Cloud traffic.
@@ -121,7 +106,7 @@ public class GenerateTestUserSig {
      * Documentation: https://cloud.tencent.com/document/product/647/17275#Server
      */
     public static String genTestUserSig(String userId) {
-        return genTLSSignature(SDKAPPID, userId, EXPIRETIME, null, SDKSECRETKEY);
+        return genTLSSignature((long) SDKAPPID, userId, (long) EXPIRETIME, null, SDKSECRETKEY);
     }
 
     /**
@@ -132,127 +117,136 @@ public class GenerateTestUserSig {
      * @param expire        Validity period, unit is seconds
      * @param userBuf       Fill in null by default
      * @param priKeyContent Contents of the private key used to generate tls tickets
-     * @param sdkAppId      `appid` of your application
-     * @param userId        User ID
-     * @param expire        Validity period, in seconds
-     * @param userBuf       `null` by default
-     * @param priKeyContent Private key required for generating a TLS ticket
      * @return If an error occurs, it will return empty, or an exception will be printed,
      * and a valid ticket will be returned successfully.
      *     Generating a TLS Ticket
      * @return If an error occurs, an empty string will be returned or exceptions printed. If the operation succeeds,
      *     a valid ticket will be returned.
      */
-    private static String genTLSSignature(long sdkAppId, String userId, long expire, byte[] userBuf,
-                                          String priKeyContent) {
+    private static String genTLSSignature(
+        long sdkAppId,
+        String userId,
+        long expire,
+        byte[] userBuf,
+        String priKeyContent
+    ) {
         long currTime = System.currentTimeMillis() / 1000;
         JSONObject sigDoc = new JSONObject();
+
         try {
             sigDoc.put("TLS.ver", "2.0");
             sigDoc.put("TLS.identifier", userId);
             sigDoc.put("TLS.sdkappid", sdkAppId);
             sigDoc.put("TLS.expire", expire);
             sigDoc.put("TLS.time", currTime);
-        } catch (JSONException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
 
         String base64UserBuf = null;
-        if (null != userBuf) {
+        if (userBuf != null) {
             base64UserBuf = Base64.encodeToString(userBuf, Base64.NO_WRAP);
             try {
                 sigDoc.put("TLS.userbuf", base64UserBuf);
-            } catch (JSONException e) {
+            } catch (Exception e) {
                 e.printStackTrace();
             }
         }
+
         String sig = hmacsha256(sdkAppId, userId, currTime, expire, priKeyContent, base64UserBuf);
-        if (sig.length() == 0) {
+        if (sig.isEmpty()) {
             return "";
         }
+
         try {
             sigDoc.put("TLS.sig", sig);
-        } catch (JSONException e) {
+        } catch (Exception e) {
             e.printStackTrace();
         }
+
         Deflater compressor = new Deflater();
         compressor.setInput(sigDoc.toString().getBytes(Charset.forName("UTF-8")));
         compressor.finish();
         byte[] compressedBytes = new byte[2048];
         int compressedBytesLength = compressor.deflate(compressedBytes);
         compressor.end();
-        return new String(base64EncodeUrl(Arrays.copyOfRange(compressedBytes, 0, compressedBytesLength)));
+
+        byte[] finalCompressed = new byte[compressedBytesLength];
+        System.arraycopy(compressedBytes, 0, finalCompressed, 0, compressedBytesLength);
+
+        return new String(base64EncodeUrl(finalCompressed));
     }
 
-
-    private static String hmacsha256(long sdkappid, String userId, long currTime, long expire, String priKeyContent,
-                                     String base64Userbuf) {
-        String contentToBeSigned =
-                "TLS.identifier:" + userId + "\n" + "TLS.sdkappid:" + sdkappid + "\n" + "TLS.time:" + currTime + "\n"
-                        + "TLS.expire:" + expire + "\n";
-        if (null != base64Userbuf) {
-            contentToBeSigned += "TLS.userbuf:" + base64Userbuf + "\n";
+    private static String hmacsha256(
+        long sdkappid,
+        String userId,
+        long currTime,
+        long expire,
+        String priKeyContent,
+        String base64Userbuf
+    ) {
+        StringBuilder contentToBeSigned = new StringBuilder();
+        contentToBeSigned.append("TLS.identifier:").append(userId).append("\n");
+        contentToBeSigned.append("TLS.sdkappid:").append(sdkappid).append("\n");
+        contentToBeSigned.append("TLS.time:").append(currTime).append("\n");
+        contentToBeSigned.append("TLS.expire:").append(expire).append("\n");
+        if (base64Userbuf != null) {
+            contentToBeSigned.append("TLS.userbuf:").append(base64Userbuf).append("\n");
         }
+
         try {
             byte[] byteKey = priKeyContent.getBytes("UTF-8");
             Mac hmac = Mac.getInstance("HmacSHA256");
             SecretKeySpec keySpec = new SecretKeySpec(byteKey, "HmacSHA256");
             hmac.init(keySpec);
-            byte[] byteSig = hmac.doFinal(contentToBeSigned.getBytes("UTF-8"));
+            byte[] byteSig = hmac.doFinal(contentToBeSigned.toString().getBytes("UTF-8"));
             return new String(Base64.encode(byteSig, Base64.NO_WRAP));
-        } catch (UnsupportedEncodingException e) {
-            return "";
-        } catch (NoSuchAlgorithmException e) {
-            return "";
-        } catch (InvalidKeyException e) {
+        } catch (Exception e) {
             return "";
         }
     }
 
     private static byte[] base64EncodeUrl(byte[] input) {
-        byte[] base64 = new String(Base64.encode(input, Base64.NO_WRAP)).getBytes();
-        for (int i = 0; i < base64.length; ++i) {
-            switch (base64[i]) {
+        byte[] base64 = Base64.encode(input, Base64.NO_WRAP);
+        for (int i = 0; i < base64.length; i++) {
+            switch ((char) base64[i]) {
                 case '+':
-                    base64[i] = '*';
+                    base64[i] = (byte) '*';
                     break;
                 case '/':
-                    base64[i] = '-';
+                    base64[i] = (byte) '-';
                     break;
                 case '=':
-                    base64[i] = '_';
-                    break;
-                default:
+                    base64[i] = (byte) '_';
                     break;
             }
         }
         return base64;
     }
 
-
-    private static final char[] DIGITS_LOWER =
-            {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'};
+    private static final char[] DIGITS_LOWER = {
+        '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
+    };
 
     public static String getSafeUrl(String streamName) {
         long txTime = System.currentTimeMillis() / 1000 + 60 * 60;
-        String input = new StringBuilder().append(LIVE_URL_KEY).append(streamName)
-                .append(Long.toHexString(txTime).toUpperCase()).toString();
-        String txSecret = null;
+        String input = LIVE_URL_KEY + streamName + Long.toHexString(txTime).toUpperCase();
+
+        String txSecret = "";
         try {
             MessageDigest messageDigest = MessageDigest.getInstance("MD5");
             txSecret = byteArrayToHexString(messageDigest.digest(input.getBytes("UTF-8")));
-        } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
-        } catch (UnsupportedEncodingException e) {
-            e.printStackTrace();
+        } catch (Exception e) {
+            // Handle exception
         }
-        return new StringBuilder().append("?txSecret=").append(txSecret).append("&").append("txTime=")
-                .append(Long.toHexString(txTime).toUpperCase()).toString();
+
+        return "?txSecret=" + txSecret + "&txTime=" + Long.toHexString(txTime).toUpperCase();
     }
 
     private static String byteArrayToHexString(byte[] data) {
         char[] out = new char[data.length << 1];
-        for (int i = 0, j = 0; i < data.length; i++) {
+        int j = 0;
+        for (int i = 0; i < data.length; i++) {
             out[j++] = DIGITS_LOWER[(0xF0 & data[i]) >>> 4];
             out[j++] = DIGITS_LOWER[0x0F & data[i]];
         }

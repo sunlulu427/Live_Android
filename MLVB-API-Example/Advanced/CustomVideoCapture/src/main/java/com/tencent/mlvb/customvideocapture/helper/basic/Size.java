@@ -1,8 +1,8 @@
 package com.tencent.mlvb.customvideocapture.helper.basic;
 
 public class Size {
-    public int width;
-    public int height;
+    public int width = 0;
+    public int height = 0;
 
     public Size() {
     }

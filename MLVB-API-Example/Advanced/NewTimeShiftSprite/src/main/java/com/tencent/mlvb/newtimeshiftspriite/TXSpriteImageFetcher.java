@@ -8,68 +8,46 @@ import android.graphics.Rect;
 import android.os.Build;
 import android.util.Log;
 import android.util.LruCache;
-
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-
-import okhttp3.Call;
-import okhttp3.Callback;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
+import okhttp3.*;
 
 public class TXSpriteImageFetcher {
+
     private static final String TAG = TXSpriteImageFetcher.class.getSimpleName();
     private static final String CONFIG_URL_FORMAT = "http://%s%s%d.jpg?txTimeshift=on";
-    private static final String BIG_IMAGE_URL_FORMAT =
-            "http://%s/%s/%s.json?txTimeshift=on&tsFormat=unix&tsSpritemode=1&tsStart=%d&tsEnd=%d";
+    private static final String BIG_IMAGE_URL_FORMAT = "http://%s/%s/%s.json?txTimeshift=on&tsFormat=unix&tsSpritemode=1&tsStart=%d&tsEnd=%d";
 
     public static final int SPRITE_THUMBNAIL_FETCH_SUCC = 0;
     public static final int SPRITE_THUMBNAIL_FETCH_PARAM_INVALID = -1;
     public static final int SPRITE_THUMBNAIL_FETCH_NETWORK_ERR = -2;
     public static final int SPRITE_THUMBNAIL_FETCH_SERVER_ERROR = -3;
-    private final BitmapFactory.Options mBitmapOption = new BitmapFactory.Options();
 
-    private Context mContext;
-    private String mDomain = "";
-    private String mPath = "";
-    private String mStreamId = "";
-    private long mStartTs = 0;
-    private long mEndTs = 0;
+    public interface TXSpriteImageFetcherCallback {
+        void onFetchDone(int errCode, Bitmap image);
+    }
 
-    private boolean mIsFetchingSpriteConfig = false;
-    private List<String> mDownloadingImageUrls;
-    private List<TXSpriteConfigData> mSpriteConfigDatas;
-    private LruCache<String, BitmapRegionDecoder> mBigImgCache;
-    private LruCache<Long, Bitmap> mSmallImgCache;
+    private static class TXSpriteConfigData {
+        public long mStartTime = 0;
+        public long mEndTime = 0;
+        public double mDuration = 0.0;
+        public String mPath = "";
+        public int mCols = 0;
+        public int mRows = 0;
+        public int mIntervalS = 0;
+        public int mHeight = 0;
+        public int mWidth = 0;
 
-    private long mFetchingTime = 0;
-    private TXSpriteImageFetcherCallback mCallback = null;
-
-    public interface TXSpriteImageFetcherCallback { void onFetchDone(int errCode, Bitmap image); }
-
-    class TXSpriteConfigData {
-        private long mStartTime;
-        private long mEndTime;
-        private double mDuration;
-        private String mPath;
-        private int mCols;
-        private int mRows;
-        private int mIntervalS;
-        private int mHeight;
-        private int mWidth;
-
-        void initWithData(JSONObject data) {
+        public void initWithData(JSONObject data) {
             mStartTime = data.optLong("start_time", 0);
             mEndTime = data.optLong("end_time", 0);
-            mDuration = data.optDouble("duration", 0);
+            mDuration = data.optDouble("duration", 0.0);
             mPath = data.optString("path", "");
             mCols = data.optInt("cols", 0);
             mRows = data.optInt("rows", 0);
@@ -78,19 +56,31 @@ public class TXSpriteImageFetcher {
             mWidth = data.optInt("width", 0);
         }
 
-        boolean isValid() {
-            return (!mPath.isEmpty() && mStartTime > 0 && mEndTime > 0 && mCols > 0 && mRows > 0
-                    && mIntervalS > 0 && mWidth > 0 && mHeight > 0);
+        public boolean isValid() {
+            return !mPath.trim().isEmpty() && mStartTime > 0 && mEndTime > 0 &&
+                   mCols > 0 && mRows > 0 && mIntervalS > 0 && mWidth > 0 && mHeight > 0;
         }
     }
 
-    public TXSpriteImageFetcher(Context context) {
-        mContext = context;
+    private final Context mContext;
+    private final BitmapFactory.Options mBitmapOption = new BitmapFactory.Options();
+    private String mDomain = "";
+    private String mPath = "";
+    private String mStreamId = "";
+    private long mStartTs = 0;
+    private long mEndTs = 0;
 
-        mDownloadingImageUrls = new ArrayList<>();
-        mSpriteConfigDatas = new ArrayList<>();
-        mBigImgCache = new LruCache<String, BitmapRegionDecoder>(30);
-        mSmallImgCache = new LruCache<Long, Bitmap>(10);
+    private volatile boolean mIsFetchingSpriteConfig = false;
+    private final List<String> mDownloadingImageUrls = new ArrayList<>();
+    private final List<TXSpriteConfigData> mSpriteConfigDatas = new ArrayList<>();
+    private final LruCache<String, BitmapRegionDecoder> mBigImgCache = new LruCache<>(30);
+    private final LruCache<Long, Bitmap> mSmallImgCache = new LruCache<>(10);
+
+    private long mFetchingTime = 0;
+    private TXSpriteImageFetcherCallback mCallback = null;
+
+    public TXSpriteImageFetcher(Context context) {
+        this.mContext = context;
     }
 
     public void init(String domain, String path, String streamId, long startTs, long endTs) {
@@ -101,10 +91,8 @@ public class TXSpriteImageFetcher {
         this.mEndTs = endTs;
     }
 
-    void setCallback(TXSpriteImageFetcherCallback callback) {
-        synchronized (this) {
-            mCallback = callback;
-        }
+    public synchronized void setCallback(TXSpriteImageFetcherCallback callback) {
+        mCallback = callback;
     }
 
     public void getThumbnail(long time) {
@@ -118,10 +106,10 @@ public class TXSpriteImageFetcher {
             return;
         }
 
-        smallImage = getThumbnailFromBigImageCache(time);
-        if (smallImage != null) {
-            mSmallImgCache.put(time, smallImage);
-            notifyFetchThumbnailResult(SPRITE_THUMBNAIL_FETCH_SUCC, smallImage);
+        Bitmap bigImage = getThumbnailFromBigImageCache(time);
+        if (bigImage != null) {
+            mSmallImgCache.put(time, bigImage);
+            notifyFetchThumbnailResult(SPRITE_THUMBNAIL_FETCH_SUCC, bigImage);
             return;
         }
 
@@ -131,7 +119,7 @@ public class TXSpriteImageFetcher {
         }
 
         String bigImageUrl = getBigImageUrl(time);
-        if (bigImageUrl.isEmpty()) {
+        if (bigImageUrl.trim().isEmpty()) {
             notifyFetchThumbnailResult(SPRITE_THUMBNAIL_FETCH_PARAM_INVALID, null);
         } else {
             fetchBigImage(bigImageUrl);
@@ -169,10 +157,7 @@ public class TXSpriteImageFetcher {
 
     private boolean isSpriteConfigDataExist(long time) {
         TXSpriteConfigData configData = getSpriteConfig(time);
-        if (configData == null || !configData.isValid()) {
-            return false;
-        }
-        return true;
+        return configData != null && configData.isValid();
     }
 
     private Bitmap getThumbnailFromSmallImageCache(long time) {
@@ -186,40 +171,28 @@ public class TXSpriteImageFetcher {
 
     private Bitmap getThumbnailFromBigImageCache(long time) {
         BitmapRegionDecoder bigImageDecoder = getBigImageDecoderFromCache(time);
-        if (bigImageDecoder == null) {
-            return null;
-        }
+        if (bigImageDecoder == null) return null;
 
         TXSpriteConfigData configData = getSpriteConfig(time);
-        if (configData == null || !configData.isValid()) {
-            return null;
-        }
+        if (configData == null || !configData.isValid()) return null;
 
         long relativeOffset = getRelativeOffset(time, configData);
         if (relativeOffset < 0) {
-            Log.d(TAG,
-                    "getThumbnail time[" + time + "] is invalid, relativeOffset is "
-                            + relativeOffset + ".");
+            Log.d(TAG, "getThumbnail time[" + time + "] is invalid, relativeOffset is " + relativeOffset + ".");
             return null;
         }
 
         Rect smallImageRect = getSmallImageRect(relativeOffset, configData);
-        Bitmap smallImage = bigImageDecoder.decodeRegion(smallImageRect, mBitmapOption);
-
-        return smallImage;
+        return bigImageDecoder.decodeRegion(smallImageRect, mBitmapOption);
     }
 
     private String getBigImageUrl(long time) {
         TXSpriteConfigData configData = getSpriteConfig(time);
-        if (configData == null || !configData.isValid()) {
-            return "";
-        }
+        if (configData == null || !configData.isValid()) return "";
 
         long relativeOffset = getRelativeOffset(time, configData);
         if (relativeOffset < 0) {
-            Log.d(TAG,
-                    "getThumbnail time[" + time + "] is invalid, relativeOffset is "
-                            + relativeOffset + ".");
+            Log.d(TAG, "getThumbnail time[" + time + "] is invalid, relativeOffset is " + relativeOffset + ".");
             return "";
         }
 
@@ -228,28 +201,27 @@ public class TXSpriteImageFetcher {
     }
 
     private void fetchSpriteConfig() {
-        if (getIsFetchingSpriteConfig()) {
-            return;
-        }
+        if (getIsFetchingSpriteConfig()) return;
         setIsFetchingSpriteConfig(true);
 
-        String strUrl =
-                String.format(BIG_IMAGE_URL_FORMAT, mDomain, mPath, mStreamId, mStartTs, mEndTs);
+        String strUrl = String.format(BIG_IMAGE_URL_FORMAT, mDomain, mPath, mStreamId, mStartTs, mEndTs);
         Log.d(TAG, "fetchSpriteConfig url is : " + strUrl);
+
         OkHttpClient okHttpClient = new OkHttpClient.Builder()
-                .connectTimeout(5, TimeUnit.SECONDS)
-                .readTimeout(5, TimeUnit.SECONDS)
-                .writeTimeout(5, TimeUnit.SECONDS)
-                .build();
+            .connectTimeout(5, TimeUnit.SECONDS)
+            .readTimeout(5, TimeUnit.SECONDS)
+            .writeTimeout(5, TimeUnit.SECONDS)
+            .build();
 
         Request request = new Request.Builder()
-                .url(strUrl)
-                .addHeader("Content-Type", "application/json; charset=utf-8")
-                .build();
+            .url(strUrl)
+            .addHeader("Content-Type", "application/json; charset=utf-8")
+            .build();
+
         okHttpClient.newCall(request).enqueue(new Callback() {
             @Override
             public void onFailure(Call call, IOException e) {
-                Log.d(TAG, "fetchSpriteConfig failed : " + e.toString());
+                Log.d(TAG, "fetchSpriteConfig failed : " + e);
                 handleFetchSpriteConfigFailed();
             }
 
@@ -266,26 +238,33 @@ public class TXSpriteImageFetcher {
         if (response.isSuccessful()) {
             mSpriteConfigDatas.clear();
             try {
-                String strData = response.body().string();
-                Log.d(TAG, "fetchSpriteConfig response data:" + strData);
+                String strData = "";
+                if (response.body() != null) {
+                    strData = response.body().string();
+                }
+                Log.d(TAG, "fetchSpriteConfig response data: " + strData);
                 JSONArray dataArrays = new JSONArray(strData);
                 for (int i = 0; i < dataArrays.length(); i++) {
                     TXSpriteConfigData configData = new TXSpriteConfigData();
                     configData.initWithData(dataArrays.getJSONObject(i));
                     mSpriteConfigDatas.add(configData);
                 }
+
                 TXSpriteConfigData configData = getSpriteConfig(mFetchingTime);
                 if (configData == null || !configData.isValid()) {
                     notifyFetchThumbnailResult(SPRITE_THUMBNAIL_FETCH_SERVER_ERROR, null);
                     return;
                 }
+
                 String bigImageUrl = getBigImageUrl(mFetchingTime);
-                if (bigImageUrl.isEmpty()) {
+                if (bigImageUrl.trim().isEmpty()) {
                     notifyFetchThumbnailResult(SPRITE_THUMBNAIL_FETCH_PARAM_INVALID, null);
                 } else {
                     fetchBigImage(bigImageUrl);
                 }
-            } catch (JSONException | IOException e) {
+            } catch (JSONException e) {
+                Log.e(TAG, e.toString());
+            } catch (IOException e) {
                 Log.e(TAG, e.toString());
             }
         } else {
@@ -308,7 +287,6 @@ public class TXSpriteImageFetcher {
     }
 
     private long getRelativeOffset(long time, TXSpriteConfigData configData) {
-        // 计算出相对场次的偏移时间
         long relativeOffset = time;
         if (mStartTs < configData.mStartTime) {
             relativeOffset -= (configData.mStartTime - mStartTs);
@@ -319,17 +297,16 @@ public class TXSpriteImageFetcher {
     }
 
     private void fetchBigImage(String bigImageUrl) {
-        if (isDownloadingBigImage(bigImageUrl)) {
-            return;
-        }
+        if (isDownloadingBigImage(bigImageUrl)) return;
         addDownloadingBigImage(bigImageUrl);
 
         Log.d(TAG, "fetchBigImage url is : " + bigImageUrl);
         OkHttpClient okHttpClient = new OkHttpClient.Builder()
-                .connectTimeout(10, TimeUnit.SECONDS)
-                .readTimeout(10, TimeUnit.SECONDS)
-                .writeTimeout(10, TimeUnit.SECONDS)
-                .build();
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(10, TimeUnit.SECONDS)
+            .writeTimeout(10, TimeUnit.SECONDS)
+            .build();
+
         Request request = new Request.Builder().url(bigImageUrl).build();
         okHttpClient.newCall(request).enqueue(new Callback() {
             @Override
@@ -340,7 +317,7 @@ public class TXSpriteImageFetcher {
 
             @Override
             public void onFailure(Call call, IOException e) {
-                Log.d(TAG, "fetchBigImage failed : " + e.toString());
+                Log.d(TAG, "fetchBigImage failed : " + e);
                 handleFetchBigImageFailed(bigImageUrl);
             }
         });
@@ -349,16 +326,23 @@ public class TXSpriteImageFetcher {
     private void handleFetchBigImageResponse(String bigImageUrl, Response response) {
         removeDownloadingBigImage(bigImageUrl);
         if (response.isSuccessful()) {
-            InputStream inputStream = response.body().byteStream();
-            try {
-                mBigImgCache.put(bigImageUrl, BitmapRegionDecoder.newInstance(inputStream, true));
-            } catch (IOException e) {
-                throw new RuntimeException(e);
+            InputStream inputStream = null;
+            if (response.body() != null) {
+                inputStream = response.body().byteStream();
             }
+            if (inputStream != null) {
+                try {
+                    mBigImgCache.put(bigImageUrl, BitmapRegionDecoder.newInstance(inputStream, true));
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            }
+
             Bitmap smallImage = getThumbnailFromBigImageCache(mFetchingTime);
-            notifyFetchThumbnailResult(smallImage == null ? SPRITE_THUMBNAIL_FETCH_SERVER_ERROR
-                            : SPRITE_THUMBNAIL_FETCH_SUCC,
-                    smallImage);
+            notifyFetchThumbnailResult(
+                smallImage == null ? SPRITE_THUMBNAIL_FETCH_SERVER_ERROR : SPRITE_THUMBNAIL_FETCH_SUCC,
+                smallImage
+            );
         } else {
             notifyFetchThumbnailResult(SPRITE_THUMBNAIL_FETCH_SERVER_ERROR, null);
         }
@@ -370,8 +354,7 @@ public class TXSpriteImageFetcher {
     }
 
     private Rect getSmallImageRect(long time, TXSpriteConfigData configData) {
-        int picOffset = (int) (time % (configData.mIntervalS * configData.mRows * configData.mCols)
-                / configData.mIntervalS);
+        int picOffset = (int) (time % (configData.mIntervalS * configData.mRows * configData.mCols) / configData.mIntervalS);
 
         Rect rect = new Rect();
         rect.left = (picOffset % configData.mCols) * configData.mWidth;
@@ -390,10 +373,7 @@ public class TXSpriteImageFetcher {
     }
 
     private synchronized boolean isDownloadingBigImage(String url) {
-        if (mDownloadingImageUrls.contains(url)) {
-            return true;
-        }
-        return false;
+        return mDownloadingImageUrls.contains(url);
     }
 
     private synchronized void addDownloadingBigImage(String url) {

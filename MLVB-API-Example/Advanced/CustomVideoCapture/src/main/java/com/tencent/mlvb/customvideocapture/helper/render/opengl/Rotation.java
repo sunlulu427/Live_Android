@@ -12,6 +12,7 @@ public enum Rotation {
     public static Rotation fromInt(int rotation) {
         switch (rotation) {
             case 0:
+            case 360:
                 return NORMAL;
             case 90:
                 return ROTATION_90;
@@ -19,8 +20,6 @@ public enum Rotation {
                 return ROTATION_180;
             case 270:
                 return ROTATION_270;
-            case 360:
-                return NORMAL;
             default:
                 return NORMAL;
         }

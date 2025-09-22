@@ -20,7 +20,8 @@ import com.tencent.mlvb.common.URLUtils;
 import com.tencent.rtmp.ui.TXCloudVideoView;
 import java.util.Random;
 
-/** Example for Dynamically Switching Rendering Controls
+/**
+ * Example for Dynamically Switching Rendering Controls
  *
  * This document shows how to use different types of views to render a video.
  * Views supported include:
@@ -30,18 +31,19 @@ import java.util.Random;
  * https://liteav.sdk.qcloud.com/doc/api/zh-cn/group__V2TXLivePusher__android.html#afc848d88fe99790b8c0988b8525dd4d9}.
  */
 public class SwitchRenderViewActivity extends MLVBBaseActivity {
+
     private static final String TAG = SwitchRenderViewActivity.class.getSimpleName();
 
-    private TXCloudVideoView    mPushTencentView;
-    private TextureView         mPushTextureView;
-    private SurfaceView         mPushSurfaceView;
-    private EditText            mEditStreamId;
-    private V2TXLivePusher      mLivePusher;
-    private RadioGroup          mRadioView;
-    private Button              mButtonPush;
-    private TextView            mTextTitle;
+    private TXCloudVideoView mPushTencentView;
+    private TextureView mPushTextureView;
+    private SurfaceView mPushSurfaceView;
+    private EditText mEditStreamId;
+    private V2TXLivePusher mLivePusher;
+    private RadioGroup mRadioView;
+    private Button mButtonPush;
+    private TextView mTextTitle;
 
-    private int                 mLastRadioButton;
+    private int mLastRadioButton = 0;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -53,32 +55,34 @@ public class SwitchRenderViewActivity extends MLVBBaseActivity {
     }
 
     @Override
-    protected void onPermissionGranted() {
+    public void onPermissionGranted() {
         initView();
     }
-
 
     private void initView() {
         mPushTencentView = findViewById(R.id.tx_cloud_view);
         mPushTextureView = findViewById(R.id.tuv_texture);
         mPushSurfaceView = findViewById(R.id.sv_surface);
-        mRadioView       = findViewById(R.id.rg_view);
-        mEditStreamId    = findViewById(R.id.et_stream_id);
-        mButtonPush      = findViewById(R.id.btn_push);
-        mTextTitle      = findViewById(R.id.tv_title);
+        mRadioView = findViewById(R.id.rg_view);
+        mEditStreamId = findViewById(R.id.et_stream_id);
+        mButtonPush = findViewById(R.id.btn_push);
+        mTextTitle = findViewById(R.id.tv_title);
 
         mEditStreamId.setText(generateStreamId());
+
         findViewById(R.id.iv_back).setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View view) {
+            public void onClick(View v) {
                 finish();
             }
         });
+
         mRadioView.check(R.id.rb_txcloudvideoview);
         mLastRadioButton = R.id.rb_txcloudvideoview;
+
         mButtonPush.setOnClickListener(new View.OnClickListener() {
             @Override
-            public void onClick(View view) {
+            public void onClick(View v) {
                 if (mLivePusher != null && mLivePusher.isPushing() == 1) {
                     stopPush();
                     mButtonPush.setText(R.string.switchrenderview_start_push);
@@ -91,31 +95,40 @@ public class SwitchRenderViewActivity extends MLVBBaseActivity {
 
         mRadioView.setOnCheckedChangeListener(new RadioGroup.OnCheckedChangeListener() {
             @Override
-            public void onCheckedChanged(RadioGroup radioGroup, int id) {
-                if (id == R.id.rb_txcloudvideoview) {
+            public void onCheckedChanged(RadioGroup group, int checkedId) {
+                if (checkedId == R.id.rb_txcloudvideoview) {
                     if (mLivePusher != null && mLivePusher.isPushing() == 1) {
-                        Toast.makeText(SwitchRenderViewActivity.this,
-                                getString(R.string.switchrenderview_please_restart_push), Toast.LENGTH_SHORT).show();
+                        Toast.makeText(
+                            SwitchRenderViewActivity.this,
+                            getString(R.string.switchrenderview_please_restart_push),
+                            Toast.LENGTH_SHORT
+                        ).show();
                         mRadioView.check(mLastRadioButton);
                         return;
                     }
                     mPushSurfaceView.setVisibility(View.GONE);
                     mPushTextureView.setVisibility(View.GONE);
                     mPushTencentView.setVisibility(View.VISIBLE);
-                } else if (id == R.id.rb_textureview) {
+                } else if (checkedId == R.id.rb_textureview) {
                     if (mLivePusher != null && mLivePusher.isPushing() == 1) {
-                        Toast.makeText(SwitchRenderViewActivity.this,
-                                getString(R.string.switchrenderview_please_restart_push), Toast.LENGTH_SHORT).show();
+                        Toast.makeText(
+                            SwitchRenderViewActivity.this,
+                            getString(R.string.switchrenderview_please_restart_push),
+                            Toast.LENGTH_SHORT
+                        ).show();
                         mRadioView.check(mLastRadioButton);
                         return;
                     }
                     mPushSurfaceView.setVisibility(View.GONE);
                     mPushTencentView.setVisibility(View.GONE);
                     mPushTextureView.setVisibility(View.VISIBLE);
-                } else if (id == R.id.rb_surfaceview) {
+                } else if (checkedId == R.id.rb_surfaceview) {
                     if (mLivePusher != null && mLivePusher.isPushing() == 1) {
-                        Toast.makeText(SwitchRenderViewActivity.this,
-                                getString(R.string.switchrenderview_please_restart_push), Toast.LENGTH_SHORT).show();
+                        Toast.makeText(
+                            SwitchRenderViewActivity.this,
+                            getString(R.string.switchrenderview_please_restart_push),
+                            Toast.LENGTH_SHORT
+                        ).show();
                         mRadioView.check(mLastRadioButton);
                         return;
                     }
@@ -135,7 +148,7 @@ public class SwitchRenderViewActivity extends MLVBBaseActivity {
         if (mLivePusher != null) {
             mLivePusher.stopCamera();
             mLivePusher.stopMicrophone();
-            if (mLivePusher != null && mLivePusher.isPushing() == 1) {
+            if (mLivePusher.isPushing() == 1) {
                 mLivePusher.stopPush();
             }
         }
@@ -145,33 +158,41 @@ public class SwitchRenderViewActivity extends MLVBBaseActivity {
     private void startPush() {
         String streamId = mEditStreamId.getText().toString();
         if (TextUtils.isEmpty(streamId)) {
-            Toast.makeText(SwitchRenderViewActivity.this, getString(R.string.switchrenderview_please_input_streamid),
-                    Toast.LENGTH_SHORT).show();
+            Toast.makeText(
+                SwitchRenderViewActivity.this,
+                getString(R.string.switchrenderview_please_input_streamid),
+                Toast.LENGTH_SHORT
+            ).show();
             return;
         }
+
         mTextTitle.setText(streamId);
+
         if (mLivePusher == null) {
             mLivePusher = new V2TXLivePusherImpl(this, V2TXLiveDef.V2TXLiveMode.TXLiveMode_RTMP);
         }
-        if (mRadioView.getCheckedRadioButtonId() == R.id.rb_txcloudvideoview) {
+
+        int checkedId = mRadioView.getCheckedRadioButtonId();
+        if (checkedId == R.id.rb_txcloudvideoview) {
             mLivePusher.setRenderView(mPushTencentView);
             mPushSurfaceView.setVisibility(View.GONE);
             mPushTextureView.setVisibility(View.GONE);
             mPushTencentView.setVisibility(View.VISIBLE);
             mLastRadioButton = R.id.rb_txcloudvideoview;
-        } else if (mRadioView.getCheckedRadioButtonId() == R.id.rb_textureview) {
+        } else if (checkedId == R.id.rb_textureview) {
             mLivePusher.setRenderView(mPushTextureView);
             mPushSurfaceView.setVisibility(View.GONE);
             mPushTextureView.setVisibility(View.VISIBLE);
             mPushTencentView.setVisibility(View.GONE);
             mLastRadioButton = R.id.rb_textureview;
-        } else if (mRadioView.getCheckedRadioButtonId() == R.id.rb_surfaceview) {
+        } else if (checkedId == R.id.rb_surfaceview) {
             mLivePusher.setRenderView(mPushSurfaceView);
             mPushSurfaceView.setVisibility(View.VISIBLE);
             mPushTextureView.setVisibility(View.GONE);
             mPushTencentView.setVisibility(View.GONE);
             mLastRadioButton = R.id.rb_surfaceview;
         }
+
         mLivePusher.startCamera(true);
         String userId = String.valueOf(new Random().nextInt(10000));
         String pushUrl = URLUtils.generatePushUrl(streamId, userId, 1);
@@ -190,5 +211,4 @@ public class SwitchRenderViewActivity extends MLVBBaseActivity {
     public void onBackPressed() {
         finish();
     }
-
 }

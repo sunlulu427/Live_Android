@@ -1,0 +1,136 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Project Overview
+
+This is an Android demo project for Tencent Cloud's Mobile Live Video Broadcasting (MLVB) SDK. The repository contains example implementations demonstrating live streaming features including push, play, co-anchoring, and advanced capabilities.
+
+## Repository Structure
+
+- **MLVB-API-Example/**: Main Android project containing all demo modules
+  - **App/**: Main application entry point with navigation to all features
+  - **Basic/**: Core live streaming features (push, play, co-anchoring, PK)
+  - **Advanced/**: Advanced features (custom capture, beauty filters, RTC, etc.)
+  - **Common/**: Shared utilities and base classes
+  - **Debug/**: Configuration and test utilities
+- **SDK/**: Contains Tencent Cloud LiteAV SDK AAR files
+
+## Development Requirements
+
+- **JDK**: Java 11 (required for Android Gradle Plugin 7.1.3)
+- **Android Studio**: 3.5 or above
+- **Device**: Android 5.0+ recommended for testing
+
+## Development Commands
+
+### Building the Project
+```bash
+cd MLVB-API-Example
+./gradlew build
+```
+
+### Running the Android App
+```bash
+# Install and run the main app on connected device/emulator
+./gradlew :App:installDebug
+
+# Build and install debug APK
+./gradlew :App:assembleDebug
+
+# Run the app directly (requires connected device)
+./gradlew :App:installDebug && adb shell am start -n com.tencent.mlvb.apiexample/.MainActivity
+```
+
+### Clean Build
+```bash
+./gradlew clean
+```
+
+### Build Specific Modules
+```bash
+# Build individual feature modules
+./gradlew :Basic:LivePushCamera:build
+./gradlew :Advanced:CustomVideoCapture:build
+```
+
+## Configuration Requirements
+
+Before building, configure these files:
+
+### 1. Local Properties Setup
+Create **MLVB-API-Example/local.properties** to configure local development settings:
+
+```properties
+# Location of the Android SDK
+sdk.dir=/path/to/your/Android/sdk
+
+# Java Home for JDK 11 (required for Android Gradle Plugin 7.1.3)
+org.gradle.java.home=/path/to/your/jdk11
+
+# Example paths:
+# macOS with Android Studio:
+# sdk.dir=/Users/username/Library/Android/sdk
+# org.gradle.java.home=/Users/username/Library/Java/JavaVirtualMachines/corretto-11.0.25/Contents/Home
+
+# Linux:
+# sdk.dir=/home/username/Android/Sdk
+# org.gradle.java.home=/usr/lib/jvm/java-11-openjdk
+
+# Windows:
+# sdk.dir=C\:\\Users\\username\\AppData\\Local\\Android\\Sdk
+# org.gradle.java.home=C\:\\Program Files\\Java\\jdk-11
+```
+
+**Note**: This file should NOT be committed to version control as it contains local machine-specific paths.
+
+### 2. Tencent Cloud Configuration
+Configure **MLVB-API-Example/Debug/src/main/java/com/tencent/mlvb/debug/GenerateTestUserSig.java**:
+   - `SDKAPPID`: Your Tencent Cloud application ID
+   - `SDKSECRETKEY`: Your application secret key
+   - `LICENSEURL`: Your MLVB license URL
+   - `LICENSEURLKEY`: Your MLVB license key
+   - `PUSH_DOMAIN`: Your configured push domain
+   - `PLAY_DOMAIN`: Your configured playback domain
+   - `LIVE_URL_KEY`: Authentication key (if enabled)
+
+## SDK Integration
+
+The project uses Tencent Cloud LiteAV SDK Professional version via Gradle dependency:
+```gradle
+implementation 'com.tencent.liteav:LiteAVSDK_Professional:latest.release'
+```
+
+## Module Architecture
+
+### Basic Features
+- **LivePushCamera**: Camera-based live streaming
+- **LivePushScreen**: Screen recording and streaming
+- **LivePlay**: Standard live stream playback
+- **LebPlay**: Low-latency WebRTC playback
+- **LiveLink**: Co-anchoring between streamers
+- **LivePK**: Competition mode between streamers
+
+### Advanced Features
+- **CustomVideoCapture**: Custom video input sources
+- **ThirdBeauty**: Integration with beauty filter SDKs
+- **RTCPushAndPlay**: RTC-based ultra-low latency streaming
+- **SwitchRenderView**: Dynamic view switching capabilities
+- **TimeShift**: Live stream time-shifting functionality
+- **PictureInPicture**: Android PiP mode support
+
+## Key Technical Details
+
+- **Minimum SDK**: Android 4.1 (API 16), recommended Android 5.0 (API 21)+
+- **Target SDK**: 26
+- **Compile SDK**: 34
+- **Supported ABIs**: armeabi-v7a, arm64-v8a
+- **Build Tools**: Android Gradle Plugin 7.1.3
+
+## Development Notes
+
+- Each feature module is self-contained with its own Activity and resources
+- The `Common` module provides shared utilities like `MLVBBaseActivity` and `URLUtils`
+- The `Debug` module contains configuration management and test user signature generation
+- Live streaming requires valid Tencent Cloud credentials and domain configuration
+- For production use, move UserSig generation to server-side for security

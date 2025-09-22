@@ -4,7 +4,8 @@
       "Bash(adb:*)",
       "Bash(./gradlew:*)",
       "Bash(/usr/libexec/java_home -V)",
-      "Bash(/usr/libexec/java_home -v 11)"
+      "Bash(/usr/libexec/java_home -v 11)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []

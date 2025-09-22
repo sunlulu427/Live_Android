@@ -134,3 +134,10 @@ implementation 'com.tencent.liteav:LiteAVSDK_Professional:latest.release'
 - The `Debug` module contains configuration management and test user signature generation
 - Live streaming requires valid Tencent Cloud credentials and domain configuration
 - For production use, move UserSig generation to server-side for security
+
+## Code Style Guidelines
+
+- **IMPORTANT**: This project uses Kotlin as the primary language. **NEVER create new Java files (.java)**
+- All new code should be written in Kotlin following idiomatic Kotlin conventions
+- When converting existing Java to Kotlin, maintain the Kotlin style and avoid force unwrapping (!!)
+- Use proper Kotlin null safety, scope functions, and data classes where appropriate

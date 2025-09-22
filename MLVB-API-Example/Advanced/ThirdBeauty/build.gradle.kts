@@ -1,5 +1,6 @@
 plugins {
     id("com.android.library")
+    id("org.jetbrains.kotlin.android")
 }
 
 android {
@@ -20,6 +21,15 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
 }
 
 dependencies {
@@ -28,4 +38,5 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.1.0")
     implementation(project(":Debug"))
     implementation(project(":Common"))
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:1.6.21")
 }

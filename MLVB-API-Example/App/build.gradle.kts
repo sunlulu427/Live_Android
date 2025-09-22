@@ -1,5 +1,6 @@
 plugins {
     id("com.android.application")
+    id("org.jetbrains.kotlin.android")
 }
 
 android {
@@ -17,6 +18,15 @@ android {
             abiFilters += listOf("armeabi-v7a", "arm64-v8a")
         }
     }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_1_8
+        targetCompatibility = JavaVersion.VERSION_1_8
+    }
+
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -33,6 +43,7 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.1.0")
     implementation("androidx.constraintlayout:constraintlayout:1.1.3")
     implementation("androidx.multidex:multidex:2.0.0")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:1.6.21")
     implementation(rootProject.extra["liteavSdk"] as String)
     implementation(project(":Debug"))
     implementation(project(":Basic:LivePushCamera"))

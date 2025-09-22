@@ -94,6 +94,8 @@ Configure **MLVB-API-Example/Debug/src/main/java/com/tencent/mlvb/debug/Generate
    - `PLAY_DOMAIN`: Your configured playback domain
    - `LIVE_URL_KEY`: Authentication key (if enabled)
 
+**Note**: This file remains in Java for compatibility with the SDK's signature generation requirements, but all other new code should be written in Kotlin.
+
 ## SDK Integration
 
 The project uses Tencent Cloud LiteAV SDK Professional version via Gradle dependency:
@@ -117,15 +119,19 @@ implementation 'com.tencent.liteav:LiteAVSDK_Professional:latest.release'
 - **RTCPushAndPlay**: RTC-based ultra-low latency streaming
 - **SwitchRenderView**: Dynamic view switching capabilities
 - **TimeShift**: Live stream time-shifting functionality
+- **NewTimeShiftSprite**: Enhanced time-shifting with sprite support
 - **PictureInPicture**: Android PiP mode support
+- **LebAutoBitrate**: Auto bitrate adjustment for low-latency streaming
+- **HlsAutoBitrate**: Auto bitrate adjustment for HLS streaming
 
 ## Key Technical Details
 
-- **Minimum SDK**: Android 4.1 (API 16), recommended Android 5.0 (API 21)+
+- **Minimum SDK**: Android API 19, recommended Android 5.0 (API 21)+
 - **Target SDK**: 26
 - **Compile SDK**: 34
-- **Supported ABIs**: armeabi-v7a, arm64-v8a
-- **Build Tools**: Android Gradle Plugin 7.1.3
+- **Supported ABIs**: arm64-v8a (default), armeabi-v7a also supported
+- **Build Tools**: Android Gradle Plugin 7.1.3, Kotlin 1.6.21
+- **Gradle Build System**: Uses Kotlin DSL (.gradle.kts files)
 
 ## Development Notes
 
@@ -141,3 +147,14 @@ implementation 'com.tencent.liteav:LiteAVSDK_Professional:latest.release'
 - All new code should be written in Kotlin following idiomatic Kotlin conventions
 - When converting existing Java to Kotlin, maintain the Kotlin style and avoid force unwrapping (!!)
 - Use proper Kotlin null safety, scope functions, and data classes where appropriate
+- Follow the patterns established in the `JAVA_TO_KOTLIN_GUIDE.md` for conversions
+- Prefer data classes for simple data holders, extension functions for utilities
+- Use sealed classes for type-safe hierarchies and `when` expressions for control flow
+
+## Java to Kotlin Migration
+
+This project has been migrated from Java to Kotlin. When working with legacy Java files:
+- Refer to `JAVA_TO_KOTLIN_GUIDE.md` for comprehensive conversion patterns
+- Focus on null safety, functional programming, and Kotlin idioms
+- Avoid direct line-by-line translation; redesign for Kotlin's strengths
+- The `GenerateTestUserSig.java` file remains in Java for SDK compatibility

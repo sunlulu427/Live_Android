@@ -12,7 +12,11 @@
       "Bash(git add:*)",
       "Bash(while read dir)",
       "Bash(echo:*)",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(chmod:*)",
+      "Bash(./scripts/verify_compatibility.sh:*)",
+      "Read(//Users/sunlulu/**)",
+      "Bash(JAVA_HOME=/Users/sunlulu/Library/Java/JavaVirtualMachines/corretto-11.0.20.1/Contents/Home ./gradlew --version)"
     ],
     "deny": [],
     "ask": []

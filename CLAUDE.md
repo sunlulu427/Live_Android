@@ -18,9 +18,20 @@ This is an Android demo project for Tencent Cloud's Mobile Live Video Broadcasti
 
 ## Development Requirements
 
-- **JDK**: Java 11 (required for Android Gradle Plugin 7.1.3)
+- **JDK**: Java 11 (Amazon Corretto 11.0.20.1 configured in local.properties)
 - **Android Studio**: 3.5 or above
 - **Device**: Android 5.0+ recommended for testing
+
+### JDK Configuration
+The project is configured to use JDK 11 via `local.properties`:
+```properties
+org.gradle.java.home=/Users/username/Library/Java/JavaVirtualMachines/corretto-11.0.20.1/Contents/Home
+```
+
+**Why JDK 11**:
+- Required for Android Gradle Plugin 7.1.3 compatibility
+- Optimal for Jetpack Compose compilation performance
+- Avoids version conflicts with newer JDK versions
 
 ## Development Commands
 
@@ -158,3 +169,20 @@ This project has been migrated from Java to Kotlin. When working with legacy Jav
 - Focus on null safety, functional programming, and Kotlin idioms
 - Avoid direct line-by-line translation; redesign for Kotlin's strengths
 - The `GenerateTestUserSig.java` file remains in Java for SDK compatibility
+
+## Documentation Update Policy
+
+**IMPORTANT**: When implementing changes, improvements, or optimizations:
+
+1. **Identify Best Practices**: If you discover a good solution or universal approach during development
+2. **Document Immediately**: Update the relevant documentation files with the new patterns/solutions
+3. **Update Guidelines**: Add the optimization to appropriate guide documents for future reference
+4. **Maintain Consistency**: Ensure all similar implementations follow the documented best practices
+
+### Documentation Files to Update:
+- `CLAUDE.md`: General project guidelines and development practices
+- `JETPACK_COMPOSE_MIGRATION_GUIDE.md`: Compose-specific patterns and solutions
+- `PROJECT_STRUCTURE_CONTEXT.md`: Architecture patterns and implementation principles
+- `JAVA_TO_KOTLIN_GUIDE.md`: Kotlin conversion best practices
+
+This ensures knowledge is captured and reusable for future development work.

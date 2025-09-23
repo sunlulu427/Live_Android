@@ -1,0 +1,197 @@
+@startuml MLVB完整推拉流时序图
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam sequenceArrowColor #333333
+skinparam sequenceLifeLineBackgroundColor #E8F5E8
+skinparam sequenceLifeLineBorderColor #4CAF50
+skinparam sequenceParticipantBackgroundColor #C8E6C9
+skinparam sequenceParticipantBorderColor #388E3C
+
+title MLVB 完整推拉流全链路时序图
+
+actor Streamer as "主播\n(推流端)"
+actor Viewer as "观众\n(拉流端)"
+participant PushApp as "推流应用\nLivePushCameraActivity"
+participant PlayApp as "播放应用\nLivePlayActivity"
+participant URLUtils as "URL工具类\nURLUtils"
+participant TestUserSig as "签名服务\nGenerateTestUserSig"
+participant V2TXLivePusher as "推流SDK\nV2TXLivePusherImpl"
+participant V2TXLivePlayer as "播放SDK\nV2TXLivePlayerImpl"
+participant TencentCloud as "腾讯云\n流媒体服务"
+participant CDN as "CDN分发网络"
+
+== 1. 主播启动推流 ==
+Streamer -> PushApp: 配置推流参数\n(流ID: teststream001)
+activate PushApp
+
+PushApp -> URLUtils: generatePushUrl("teststream001", "pusher123", RTC)
+URLUtils -> TestUserSig: genTestUserSig("pusher123")
+TestUserSig --> URLUtils: 返回签名
+URLUtils --> PushApp: trtc://cloud.tencent.com/push/teststream001
+
+PushApp -> V2TXLivePusher: 创建RTC推流器
+activate V2TXLivePusher
+PushApp -> V2TXLivePusher: 配置音视频参数
+PushApp -> V2TXLivePusher: startCamera() + startMicrophone()
+PushApp -> V2TXLivePusher: startPush(pushUrl)
+
+V2TXLivePusher -> TencentCloud: 建立RTC推流连接
+activate TencentCloud
+TencentCloud --> V2TXLivePusher: 连接成功确认
+V2TXLivePusher --> PushApp: 推流启动成功
+
+== 2. 音视频流传输 ==
+loop 持续推流
+    V2TXLivePusher -> TencentCloud: 推送音视频数据流
+    TencentCloud -> TencentCloud: 实时转码处理\n生成多种格式
+
+    note over TencentCloud
+    **云端处理:**
+    - RTC流接收
+    - 实时转码为RTMP/FLV/HLS
+    - 音视频质量调整
+    - 推送到CDN节点
+    end note
+
+    TencentCloud -> CDN: 分发到全球CDN节点
+    activate CDN
+end
+
+== 3. 观众启动拉流 ==
+Viewer -> PlayApp: 配置播放参数\n(流ID: teststream001, 协议: RTC)
+activate PlayApp
+
+PlayApp -> URLUtils: generatePlayUrl("teststream001", "viewer456", RTC)
+URLUtils -> TestUserSig: genTestUserSig("viewer456")
+TestUserSig --> URLUtils: 返回签名
+URLUtils --> PlayApp: trtc://cloud.tencent.com/play/teststream001
+
+PlayApp -> V2TXLivePlayer: 创建RTC播放器
+activate V2TXLivePlayer
+PlayApp -> V2TXLivePlayer: 设置播放回调
+PlayApp -> V2TXLivePlayer: startLivePlay(playUrl)
+
+V2TXLivePlayer -> TencentCloud: 建立RTC拉流连接
+TencentCloud --> V2TXLivePlayer: 连接成功，开始推送流数据
+
+== 4. 实时音视频传输 ==
+loop 实时播放
+    TencentCloud -> V2TXLivePlayer: 推送音视频流数据
+    V2TXLivePlayer -> PlayApp: onVideoPlaying() 回调
+    V2TXLivePlayer -> PlayApp: 渲染视频帧到界面
+    PlayApp -> Viewer: 实时音视频播放\n(RTC延迟: 100-300ms)
+end
+
+== 5. 多协议支持场景 ==
+group 观众B - RTMP/FLV播放
+    participant ViewerB as "观众B"
+    participant PlayAppB as "播放应用B"
+    participant PlayerB as "播放SDK B"
+
+    ViewerB -> PlayAppB: 选择FLV播放
+    PlayAppB -> URLUtils: generatePlayUrl("teststream001", "", FLV)
+    URLUtils --> PlayAppB: http://{domain}/live/teststream001.flv
+
+    PlayAppB -> PlayerB: 创建播放器
+    PlayerB -> CDN: 请求FLV流
+    CDN -> PlayerB: 返回FLV流数据
+    PlayerB -> ViewerB: 播放视频 (延迟: 1-3秒)
+end
+
+group 观众C - WebRTC低延迟播放
+    participant ViewerC as "观众C"
+    participant LebPlayApp as "LEB播放应用"
+    participant PlayerC as "WebRTC播放器"
+
+    ViewerC -> LebPlayApp: 选择低延迟播放
+    LebPlayApp -> URLUtils: generatePlayUrl("teststream001", "", WEBRTC)
+    URLUtils --> LebPlayApp: webrtc://{domain}/live/teststream001
+
+    LebPlayApp -> PlayerC: 创建WebRTC播放器
+    PlayerC -> TencentCloud: 建立WebRTC连接
+    TencentCloud -> PlayerC: 超低延迟流传输
+    PlayerC -> ViewerC: 播放视频 (延迟: <400ms)
+end
+
+== 6. 推流控制操作 ==
+Streamer -> PushApp: 调整推流参数
+
+alt 分辨率调整
+    PushApp -> V2TXLivePusher: setVideoQuality(720P)
+    V2TXLivePusher -> TencentCloud: 应用新编码参数
+    TencentCloud -> V2TXLivePlayer: 推送高清流
+    V2TXLivePlayer -> PlayApp: onVideoResolutionChanged()
+else 镜像调整
+    PushApp -> V2TXLivePusher: setRenderMirror(enable)
+    V2TXLivePusher -> V2TXLivePusher: 本地预览镜像调整
+else 麦克风控制
+    PushApp -> V2TXLivePusher: stopMicrophone()
+    V2TXLivePusher -> TencentCloud: 停止音频流推送
+    TencentCloud -> V2TXLivePlayer: 音频流中断
+end
+
+== 7. 拉流控制操作 ==
+Viewer -> PlayApp: 播放控制操作
+
+alt 静音操作
+    PlayApp -> V2TXLivePlayer: pauseAudio()
+    V2TXLivePlayer -> V2TXLivePlayer: 本地音频静音
+else 播放暂停
+    PlayApp -> V2TXLivePlayer: pauseVideo()
+    V2TXLivePlayer -> V2TXLivePlayer: 暂停视频渲染
+end
+
+== 8. 异常处理 ==
+group 网络异常处理
+    alt 推流端网络中断
+        V2TXLivePusher -x TencentCloud: 网络连接中断
+        V2TXLivePusher -> PushApp: onError() 推流失败
+        PushApp -> Streamer: 显示重连提示
+
+        V2TXLivePusher -> TencentCloud: 自动重连尝试
+        TencentCloud --> V2TXLivePusher: 重连成功
+        V2TXLivePusher -> PushApp: 恢复推流状态
+
+    else 拉流端网络中断
+        TencentCloud -x V2TXLivePlayer: 网络连接中断
+        V2TXLivePlayer -> PlayApp: onError() 播放失败
+        PlayApp -> Viewer: 显示加载中/重连提示
+
+        V2TXLivePlayer -> TencentCloud: 自动重连尝试
+        TencentCloud --> V2TXLivePlayer: 重连成功
+        V2TXLivePlayer -> PlayApp: onVideoPlaying() 恢复播放
+    end
+end
+
+== 9. 推拉流结束 ==
+Streamer -> PushApp: 结束推流
+PushApp -> V2TXLivePusher: stopPush() + stopCamera()
+V2TXLivePusher -> TencentCloud: 断开推流连接
+TencentCloud -> CDN: 停止流分发
+deactivate CDN
+
+TencentCloud -> V2TXLivePlayer: 流结束通知
+V2TXLivePlayer -> PlayApp: onError() 播放结束
+PlayApp -> Viewer: 显示直播结束
+
+Viewer -> PlayApp: 退出观看
+PlayApp -> V2TXLivePlayer: stopPlay()
+deactivate V2TXLivePlayer
+deactivate PlayApp
+
+deactivate V2TXLivePusher
+deactivate PushApp
+deactivate TencentCloud
+
+== 10. 资源清理 ==
+note over Streamer, CDN
+**全链路总结:**
+1. **推流端**: 主播通过SDK推送音视频到腾讯云
+2. **云端处理**: 实时转码、质量调整、分发到CDN
+3. **拉流端**: 观众通过多种协议播放音视频
+4. **协议支持**: RTC(超低延迟)、WebRTC(低延迟)、RTMP/FLV/HLS(标准延迟)
+5. **完整监控**: 全程事件回调、异常处理、自动重连
+6. **动态调整**: 推拉流过程中支持参数实时调整
+end note
+
+@enduml

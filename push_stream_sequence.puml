@@ -1,0 +1,145 @@
+@startuml 推流时序图
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam sequenceArrowColor #333333
+skinparam sequenceLifeLineBackgroundColor #E8F4F8
+skinparam sequenceLifeLineBorderColor #2196F3
+skinparam sequenceParticipantBackgroundColor #E3F2FD
+skinparam sequenceParticipantBorderColor #1976D2
+
+title MLVB 推流实现时序图
+
+actor User as "用户"
+participant App as "应用主界面"
+participant EnterActivity as "推流配置页面\nLivePushCameraEnterActivity"
+participant PushActivity as "推流界面\nLivePushCameraActivity"
+participant URLUtils as "URL工具类\nURLUtils"
+participant TestUserSig as "签名生成\nGenerateTestUserSig"
+participant V2TXLivePusher as "腾讯推流SDK\nV2TXLivePusherImpl"
+participant TXCloudVideoView as "视频渲染组件\nTXCloudVideoView"
+participant StreamServer as "流媒体服务器"
+
+== 推流配置阶段 ==
+User -> App: 点击摄像头推流
+App -> EnterActivity: 启动配置页面
+activate EnterActivity
+
+EnterActivity -> EnterActivity: 初始化UI组件
+EnterActivity -> EnterActivity: 设置默认参数\n(StreamID, 音质等)
+
+User -> EnterActivity: 配置推流参数\n(流ID, 音质, 推流类型)
+User -> EnterActivity: 点击开始推流
+
+EnterActivity -> PushActivity: 传递配置参数\n(STREAM_ID, STREAM_TYPE, AUDIO_QUALITY)
+deactivate EnterActivity
+activate PushActivity
+
+== 推流初始化阶段 ==
+PushActivity -> PushActivity: onCreate()
+PushActivity -> PushActivity: checkPermission()\n检查摄像头、麦克风权限
+
+alt 权限已授予
+    PushActivity -> PushActivity: initView()\n初始化UI组件
+    PushActivity -> PushActivity: startPush()\n开始推流
+else 权限未授予
+    PushActivity -> User: 请求权限
+    User -> PushActivity: 授予权限
+    PushActivity -> PushActivity: onPermissionGranted()
+    PushActivity -> PushActivity: initView()
+    PushActivity -> PushActivity: startPush()
+end
+
+== 推流启动阶段 ==
+PushActivity -> PushActivity: 判断推流类型\n(RTC/RTMP)
+
+alt RTC推流 (streamType = 0)
+    PushActivity -> V2TXLivePusher: new V2TXLivePusherImpl(context, TXLiveMode_RTC)
+    PushActivity -> URLUtils: generatePushUrl(streamId, userId, 0)
+    URLUtils -> TestUserSig: genTestUserSig(userId)
+    TestUserSig --> URLUtils: 返回UserSig
+    URLUtils --> PushActivity: 返回RTC推流URL\ntrtc://cloud.tencent.com/push/{streamId}
+else RTMP推流 (streamType = 1)
+    PushActivity -> V2TXLivePusher: new V2TXLivePusherImpl(context, TXLiveMode_RTMP)
+    PushActivity -> URLUtils: generatePushUrl(streamId, "", 1)
+    URLUtils -> TestUserSig: getSafeUrl(streamId)
+    TestUserSig --> URLUtils: 返回带签名的安全URL
+    URLUtils --> PushActivity: 返回RTMP推流URL\nrtmp://{domain}/live/{streamId}
+end
+
+activate V2TXLivePusher
+
+== 推流器配置阶段 ==
+PushActivity -> V2TXLivePusher: setAudioQuality(audioQuality)\n设置音频质量
+PushActivity -> V2TXLivePusher: setRenderView(pushRenderView)\n设置渲染视图
+PushActivity -> TXCloudVideoView: 绑定到推流器
+activate TXCloudVideoView
+
+PushActivity -> V2TXLivePusher: startCamera(true)\n启动摄像头
+V2TXLivePusher -> V2TXLivePusher: 初始化摄像头
+V2TXLivePusher -> TXCloudVideoView: 开始本地视频预览
+
+== 开始推流阶段 ==
+PushActivity -> V2TXLivePusher: startPush(pushUrl)\n开始推流
+V2TXLivePusher -> StreamServer: 建立连接
+activate StreamServer
+
+alt 连接成功
+    StreamServer --> V2TXLivePusher: 连接确认
+    V2TXLivePusher --> PushActivity: 返回成功 (ret = 0)
+    PushActivity -> V2TXLivePusher: startMicrophone()\n启动麦克风
+    V2TXLivePusher -> StreamServer: 开始推送音视频流
+    PushActivity -> User: 显示推流成功状态
+else 连接失败
+    StreamServer --> V2TXLivePusher: 连接失败
+    V2TXLivePusher --> PushActivity: 返回错误码
+    PushActivity -> User: 显示错误信息
+end
+
+== 推流控制阶段 ==
+loop 推流过程中的操作
+    alt 用户调整分辨率
+        User -> PushActivity: 选择分辨率(360P/540P/720P/1080P)
+        PushActivity -> V2TXLivePusher: setVideoQuality(V2TXLiveVideoEncoderParam)
+        V2TXLivePusher -> StreamServer: 应用新的编码参数
+    else 用户调整旋转角度
+        User -> PushActivity: 选择旋转角度(0°/90°/180°/270°)
+        PushActivity -> V2TXLivePusher: setRenderRotation(rotationFlag)
+        V2TXLivePusher -> TXCloudVideoView: 应用旋转效果
+    else 用户调整镜像模式
+        User -> PushActivity: 选择镜像模式(自动/开启/关闭)
+        PushActivity -> V2TXLivePusher: setRenderMirror(mirrorFlag)
+        V2TXLivePusher -> TXCloudVideoView: 应用镜像效果
+    else 用户开关麦克风
+        User -> PushActivity: 点击麦克风按钮
+        alt 关闭麦克风
+            PushActivity -> V2TXLivePusher: stopMicrophone()
+            V2TXLivePusher -> StreamServer: 停止音频流
+        else 开启麦克风
+            PushActivity -> V2TXLivePusher: startMicrophone()
+            V2TXLivePusher -> StreamServer: 恢复音频流
+        end
+    end
+end
+
+== 推流结束阶段 ==
+User -> PushActivity: 退出推流页面
+PushActivity -> PushActivity: onDestroy()
+PushActivity -> V2TXLivePusher: stopCamera()\n停止摄像头
+PushActivity -> V2TXLivePusher: stopPush()\n停止推流
+V2TXLivePusher -> StreamServer: 断开连接
+deactivate StreamServer
+V2TXLivePusher -> TXCloudVideoView: 停止视频渲染
+deactivate TXCloudVideoView
+PushActivity -> PushActivity: 释放资源
+deactivate V2TXLivePusher
+deactivate PushActivity
+
+note over User, StreamServer
+**推流关键要点:**
+1. 支持RTC和RTMP两种推流协议
+2. RTC推流需要UserSig签名认证
+3. 推流过程中可动态调整分辨率、旋转、镜像等参数
+4. 完整的生命周期管理，确保资源正确释放
+end note
+
+@enduml

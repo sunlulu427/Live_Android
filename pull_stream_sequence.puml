@@ -1,0 +1,187 @@
+@startuml 拉流时序图
+!theme plain
+skinparam backgroundColor #FAFAFA
+skinparam sequenceArrowColor #333333
+skinparam sequenceLifeLineBackgroundColor #F3E5F5
+skinparam sequenceLifeLineBorderColor #9C27B0
+skinparam sequenceParticipantBackgroundColor #F8BBD9
+skinparam sequenceParticipantBorderColor #E91E63
+
+title MLVB 拉流实现时序图
+
+actor User as "用户"
+participant App as "应用主界面"
+participant EnterActivity as "拉流配置页面\nLivePlayEnterActivity"
+participant PlayActivity as "拉流界面\nLivePlayActivity"
+participant LebPlayActivity as "低延迟拉流界面\nLebPlayActivity"
+participant URLUtils as "URL工具类\nURLUtils"
+participant TestUserSig as "签名生成\nGenerateTestUserSig"
+participant V2TXLivePlayer as "腾讯播放SDK\nV2TXLivePlayerImpl"
+participant PlayerObserver as "播放回调\nV2TXLivePlayerObserver"
+participant TXCloudVideoView as "视频渲染组件\nTXCloudVideoView"
+participant StreamServer as "流媒体服务器"
+
+== 拉流配置阶段 ==
+User -> App: 选择播放类型\n(标准直播/低延迟直播)
+App -> EnterActivity: 启动配置页面
+activate EnterActivity
+
+EnterActivity -> EnterActivity: 初始化UI组件
+EnterActivity -> EnterActivity: 设置默认参数\n(StreamID, 播放协议等)
+
+User -> EnterActivity: 配置播放参数\n(流ID, 播放协议类型)
+User -> EnterActivity: 点击开始播放
+
+alt 标准直播
+    EnterActivity -> PlayActivity: 传递配置参数\n(STREAM_ID, STREAM_TYPE)
+    deactivate EnterActivity
+    activate PlayActivity
+else 低延迟直播 (LEB)
+    EnterActivity -> LebPlayActivity: 传递配置参数\n(STREAM_ID)
+    deactivate EnterActivity
+    activate LebPlayActivity
+end
+
+== 拉流初始化阶段 (以标准直播为例) ==
+PlayActivity -> PlayActivity: onCreate()
+PlayActivity -> PlayActivity: checkPermission()\n检查必要权限
+
+alt 权限已授予
+    PlayActivity -> PlayActivity: initView()\n初始化UI组件
+    PlayActivity -> PlayActivity: startPlay()\n开始播放
+else 权限未授予
+    PlayActivity -> User: 请求权限
+    User -> PlayActivity: 授予权限
+    PlayActivity -> PlayActivity: onPermissionGranted()
+    PlayActivity -> PlayActivity: initView()
+    PlayActivity -> PlayActivity: startPlay()
+end
+
+== 播放器创建阶段 ==
+PlayActivity -> V2TXLivePlayer: new V2TXLivePlayerImpl(context)
+activate V2TXLivePlayer
+
+PlayActivity -> V2TXLivePlayer: setRenderView(mPlayRenderView)
+PlayActivity -> TXCloudVideoView: 绑定到播放器
+activate TXCloudVideoView
+
+== 播放回调设置阶段 ==
+PlayActivity -> PlayerObserver: 创建观察者实例
+activate PlayerObserver
+PlayActivity -> V2TXLivePlayer: setObserver(playerObserver)
+
+note over PlayerObserver
+**关键回调事件:**
+- onError: 播放错误
+- onVideoLoading: 视频加载中
+- onVideoPlaying: 视频播放中
+- onVideoResolutionChanged: 分辨率变化
+- onWarning: 警告信息
+- onRenderVideoFrame: 视频帧渲染
+end note
+
+== URL生成阶段 ==
+PlayActivity -> URLUtils: generatePlayUrl(streamId, userId, streamType)
+
+alt RTMP播放 (type=0)
+    URLUtils --> PlayActivity: rtmp://{domain}/live/{streamId}
+else FLV播放 (type=1)
+    URLUtils --> PlayActivity: http://{domain}/live/{streamId}.flv
+else HLS播放 (type=2)
+    URLUtils --> PlayActivity: http://{domain}/live/{streamId}.m3u8
+else RTC播放 (type=3)
+    URLUtils -> TestUserSig: genTestUserSig(userId)
+    TestUserSig --> URLUtils: 返回UserSig
+    URLUtils --> PlayActivity: trtc://cloud.tencent.com/play/{streamId}
+else WebRTC播放 (type=4, LEB低延迟)
+    URLUtils --> PlayActivity: webrtc://{domain}/live/{streamId}
+end
+
+== 开始播放阶段 ==
+PlayActivity -> V2TXLivePlayer: startLivePlay(playURL)
+V2TXLivePlayer -> StreamServer: 建立连接请求
+activate StreamServer
+
+alt 连接成功
+    StreamServer --> V2TXLivePlayer: 连接确认
+    V2TXLivePlayer -> PlayerObserver: onVideoLoading()\n触发加载回调
+    PlayerObserver --> PlayActivity: 显示加载状态
+
+    StreamServer -> V2TXLivePlayer: 开始传输音视频流
+    V2TXLivePlayer -> TXCloudVideoView: 开始渲染视频帧
+    V2TXLivePlayer -> PlayerObserver: onVideoPlaying(firstPlay=true)\n触发播放回调
+    PlayerObserver --> PlayActivity: 更新播放状态
+
+    V2TXLivePlayer --> PlayActivity: 返回成功 (result = 0)
+    PlayActivity -> PlayActivity: 设置播放标志 mPlayFlag = true
+
+else 连接失败
+    StreamServer --> V2TXLivePlayer: 连接失败
+    V2TXLivePlayer -> PlayerObserver: onError(code, msg)\n触发错误回调
+    PlayerObserver --> PlayActivity: 显示错误信息
+    V2TXLivePlayer --> PlayActivity: 返回错误码
+end
+
+== 播放控制阶段 ==
+loop 播放过程中的操作
+    alt 视频流变化
+        StreamServer -> V2TXLivePlayer: 分辨率变化
+        V2TXLivePlayer -> PlayerObserver: onVideoResolutionChanged(width, height)
+        PlayerObserver --> PlayActivity: 通知分辨率变化
+        V2TXLivePlayer -> TXCloudVideoView: 调整渲染尺寸
+    else 用户静音操作
+        User -> PlayActivity: 点击静音按钮
+        alt 当前为播放状态
+            PlayActivity -> V2TXLivePlayer: pauseAudio()\n暂停音频
+            PlayActivity -> PlayActivity: 更新按钮状态为"取消静音"
+        else 当前为静音状态
+            PlayActivity -> V2TXLivePlayer: resumeAudio()\n恢复音频
+            PlayActivity -> PlayActivity: 更新按钮状态为"静音"
+        end
+    else 网络波动处理
+        StreamServer -> V2TXLivePlayer: 网络状况变化
+        alt 网络不佳
+            V2TXLivePlayer -> PlayerObserver: onWarning()\n触发警告
+            PlayerObserver --> PlayActivity: 显示网络警告
+        else 网络恢复
+            V2TXLivePlayer -> PlayerObserver: onVideoPlaying()\n恢复播放
+            PlayerObserver --> PlayActivity: 恢复正常状态
+        end
+    end
+end
+
+== 播放结束阶段 ==
+User -> PlayActivity: 退出播放页面
+PlayActivity -> PlayActivity: onDestroy()
+PlayActivity -> V2TXLivePlayer: stopPlay()\n停止播放
+V2TXLivePlayer -> StreamServer: 断开连接
+deactivate StreamServer
+V2TXLivePlayer -> TXCloudVideoView: 停止视频渲染
+deactivate TXCloudVideoView
+PlayActivity -> PlayActivity: 释放播放器资源\nmLivePlayer = null
+deactivate PlayerObserver
+deactivate V2TXLivePlayer
+
+alt 低延迟播放 (LEB) 的特殊处理
+    note over LebPlayActivity
+    **LEB播放特点:**
+    1. 使用WebRTC协议 (type=4)
+    2. 延迟更低，通常<400ms
+    3. 适合互动场景
+    4. 流程与标准播放基本一致
+    5. URL格式: webrtc://{domain}/live/{streamId}
+    end note
+    deactivate LebPlayActivity
+end
+
+note over User, StreamServer
+**拉流关键要点:**
+1. 支持多种协议: RTMP、FLV、HLS、RTC、WebRTC
+2. 完整的事件回调机制，实现状态监控
+3. RTC播放需要UserSig签名认证
+4. WebRTC(LEB)提供超低延迟播放体验
+5. 支持音频独立控制和动态调整
+6. 完整的生命周期管理
+end note
+
+@enduml
